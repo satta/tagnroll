@@ -1,0 +1,12 @@
+github.com/creack/pty v1.1.24 h1:bJrF4RRfyJnbTJqzRLHzcGaZK1NeM5kTC9jGgovnR1s=
+github.com/creack/pty v1.1.24/go.mod h1:08sCNb52WyoAwi2QDyzUCTgcvVFhUzewun7wtTfvcwE=
+github.com/gotk3/gotk3 v0.6.1 h1:GJ400a0ecEEWrzjBvzBzH+pB/esEMIGdB9zPSmBdoeo=
+github.com/gotk3/gotk3 v0.6.1/go.mod h1:/hqFpkNa9T3JgNAE2fLvCdov7c5bw//FHNZrZ3Uv9/Q=
+github.com/napsy/go-vte v0.0.0-20171212212852-ab6fda71757e h1:a343rfBuYcfbOoWbiFdInPl/hN68T36J9xOx5A/puDw=
+github.com/napsy/go-vte v0.0.0-20171212212852-ab6fda71757e/go.mod h1:6sY5p159jwHoc7/UgtH9hbtOpIKythGL1eeaTmsMIE8=
+github.com/wilburx9/color-name v0.0.0-20200122234042-cbe455f85a1d h1:eY2hdXOW1ExwDX+jHIJJ83MQjMUPlv50DEk9PJnhkFQ=
+github.com/wilburx9/color-name v0.0.0-20200122234042-cbe455f85a1d/go.mod h1:huH4v2MqBQCL+HCIokz94NmwRNK/dNMtBvL2jT7pom4=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
+gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
