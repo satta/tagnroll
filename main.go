@@ -284,7 +284,7 @@ func createApp() (*App, error) {
 	for _, m := range materials {
 		materialCombo.Append(m.code, m.name)
 	}
-	materialCombo.SetActive(0)
+	materialCombo.SetActive(-1)           // No selection by default
 	materialCombo.SetSizeRequest(200, -1) // Set reasonable width
 	materialBox.PackStart(materialCombo, true, true, 5)
 
@@ -315,6 +315,10 @@ func createApp() (*App, error) {
 	spoolIcon.Connect("draw", app.drawSpoolIcon)
 	colorEventBox.Add(spoolIcon)
 	colorEventBox.SetVisibleWindow(true)
+	// Queue initial draw after UI is shown
+	glib.IdleAdd(func() {
+		spoolIcon.QueueDraw()
+	})
 	colorEventBox.Connect("button-press-event", func() bool {
 		app.onPickColor()
 		return false
@@ -326,14 +330,14 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	app.colorEntry = colorEntry
-	colorEntry.SetText("0FF0000")
+	colorEntry.SetText("")
 	colorEntry.Connect("changed", func() {
 		app.colorPreview.QueueDraw()
 		app.updateColorNameLabel()
 	})
 	colorBox.PackStart(colorEntry, true, true, 5)
 
-	colorNameLabel, err := gtk.LabelNew("Red")
+	colorNameLabel, err := gtk.LabelNew("")
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +367,7 @@ func createApp() (*App, error) {
 	for code, name := range crypto.LengthCodes {
 		weightCombo.Append(code, name)
 	}
-	weightCombo.SetActive(0)
+	weightCombo.SetActive(-1) // No selection by default
 	weightBox.PackStart(weightCombo, true, true, 5)
 
 	// Batch
@@ -384,8 +388,15 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	app.batchEntry = batchEntry
-	batchEntry.SetText("1A5")
+	batchEntry.SetText("")
 	batchBox.PackStart(batchEntry, true, true, 5)
+
+	randomBatchBtn, err := gtk.ButtonNewWithLabel("🎲")
+	if err != nil {
+		return nil, err
+	}
+	randomBatchBtn.Connect("clicked", app.onRandomizeBatch)
+	batchBox.PackStart(randomBatchBtn, false, false, 5)
 
 	// Date
 	dateBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
@@ -428,8 +439,15 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	app.supplierEntry = supplierEntry
-	supplierEntry.SetText("1B3D")
+	supplierEntry.SetText("")
 	supBox.PackStart(supplierEntry, true, true, 5)
+
+	randomSupplierBtn, err := gtk.ButtonNewWithLabel("🎲")
+	if err != nil {
+		return nil, err
+	}
+	randomSupplierBtn.Connect("clicked", app.onRandomizeSupplier)
+	supBox.PackStart(randomSupplierBtn, false, false, 5)
 
 	// Serial
 	serialBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
@@ -449,6 +467,7 @@ func createApp() (*App, error) {
 		return nil, err
 	}
 	app.serialEntry = serialEntry
+	serialEntry.SetText("")
 	serialBox.PackStart(serialEntry, true, true, 5)
 
 	randomSerialBtn, err := gtk.ButtonNewWithLabel("🎲")
@@ -666,6 +685,12 @@ func (app *App) addHistoryItem(entry history.TagEntry, index int) {
 }
 
 func (app *App) drawSpoolIconForColor(da *gtk.DrawingArea, cr *cairo.Context, colorHex string) {
+	// Get widget dimensions
+	width := da.GetAllocatedWidth()
+	height := da.GetAllocatedHeight()
+	centerX := float64(width) / 2
+	centerY := float64(height) / 2
+
 	// Parse hex color (format: 0RRGGBB)
 	var r, g, b float64
 	if len(colorHex) == 7 && colorHex[0] == '0' {
@@ -675,15 +700,40 @@ func (app *App) drawSpoolIconForColor(da *gtk.DrawingArea, cr *cairo.Context, co
 		g = float64(gi) / 255.0
 		b = float64(bi) / 255.0
 	} else {
-		// Default to gray if invalid
-		r, g, b = 0.5, 0.5, 0.5
-	}
+		// Draw outer circle (spool rim)
+		cr.SetSourceRGB(0.6, 0.6, 0.6)
+		cr.Arc(centerX, centerY, float64(width)/2-2, 0, 2*math.Pi)
+		cr.Fill()
 
-	// Get widget dimensions
-	width := da.GetAllocatedWidth()
-	height := da.GetAllocatedHeight()
-	centerX := float64(width) / 2
-	centerY := float64(height) / 2
+		// Draw inner circle (spool hub) - transparent
+		cr.SetSourceRGB(0.9, 0.9, 0.9)
+		cr.Arc(centerX, centerY, float64(width)/3, 0, 2*math.Pi)
+		cr.Fill()
+
+		// Draw center hole
+		cr.SetSourceRGB(0.7, 0.7, 0.7)
+		cr.Arc(centerX, centerY, float64(width)/8, 0, 2*math.Pi)
+		cr.Fill()
+
+		// Draw checkered pattern on top - clipped to spool shape
+		cr.Save()
+		cr.Arc(centerX, centerY, float64(width)/2-2, 0, 2*math.Pi)
+		cr.Clip()
+
+		// Draw checkered pattern
+		checkSize := 8.0
+		cr.SetSourceRGB(0.8, 0.8, 0.8)
+		for x := 0; x < int(width); x += int(checkSize) {
+			for y := 0; y < int(height); y += int(checkSize) {
+				if ((x/int(checkSize) + y/int(checkSize)) % 2) == 0 {
+					cr.Rectangle(float64(x), float64(y), checkSize, checkSize)
+					cr.Fill()
+				}
+			}
+		}
+		cr.Restore()
+		return
+	}
 
 	// Draw outer circle (spool rim)
 	cr.SetSourceRGB(r*0.7, g*0.7, b*0.7) // Darker shade for rim
@@ -813,9 +863,44 @@ func (app *App) updateColorNameLabel() {
 }
 
 func (app *App) onRandomizeSerial() {
+	app.randomizeHexEntry(app.serialEntry, 6, 0xFFFFFF)
+}
+
+func (app *App) onRandomizeBatch() {
+	app.randomizeHexEntry(app.batchEntry, 3, 0xFFF)
+}
+
+func (app *App) onRandomizeSupplier() {
+	app.randomizeHexEntry(app.supplierEntry, 4, 0xFFFF)
+}
+
+func (app *App) randomizeHexEntry(entry *gtk.Entry, length int, max int) {
 	rand.Seed(time.Now().UnixNano())
-	serial := fmt.Sprintf("%06X", rand.Intn(0xFFFFFF))
-	app.serialEntry.SetText(serial)
+	value := fmt.Sprintf("%0*X", length, rand.Intn(max))
+	entry.SetText(value)
+}
+
+func (app *App) createLabeledEntry(parent *gtk.Box, labelText, value string) (*gtk.Entry, error) {
+	box, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
+	if err != nil {
+		return nil, err
+	}
+	parent.PackStart(box, false, false, 5)
+
+	label, err := gtk.LabelNew(labelText)
+	if err != nil {
+		return nil, err
+	}
+	box.PackStart(label, false, false, 5)
+
+	entry, err := gtk.EntryNew()
+	if err != nil {
+		return nil, err
+	}
+	entry.SetText(value)
+	box.PackStart(entry, true, true, 5)
+
+	return entry, nil
 }
 
 func (app *App) onShowSettings() {
@@ -840,97 +925,27 @@ func (app *App) onShowSettings() {
 	}
 	contentArea.PackStart(vbox, true, true, 10)
 
-	// Proxmark binary path
-	binaryBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
+	// Create labeled entry fields
+	binaryEntry, err := app.createLabeledEntry(vbox, "Proxmark3 Binary:", app.config.ProxmarkBinary)
 	if err != nil {
 		dialog.Destroy()
 		return
 	}
-	vbox.PackStart(binaryBox, false, false, 5)
-
-	binaryLabel, err := gtk.LabelNew("Proxmark3 Binary:")
+	deviceEntry, err := app.createLabeledEntry(vbox, "Device:", app.config.Device)
 	if err != nil {
 		dialog.Destroy()
 		return
 	}
-	binaryBox.PackStart(binaryLabel, false, false, 5)
-
-	binaryEntry, err := gtk.EntryNew()
+	keyGenEntry, err := app.createLabeledEntry(vbox, "AES Key Gen (16 chars):", app.config.AESKeyGen)
 	if err != nil {
 		dialog.Destroy()
 		return
 	}
-	binaryEntry.SetText(app.config.ProxmarkBinary)
-	binaryBox.PackStart(binaryEntry, true, true, 5)
-
-	// Device path
-	deviceBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
+	keyCipherEntry, err := app.createLabeledEntry(vbox, "AES Key Cipher (16 chars):", app.config.AESKeyCipher)
 	if err != nil {
 		dialog.Destroy()
 		return
 	}
-	vbox.PackStart(deviceBox, false, false, 5)
-
-	deviceLabel, err := gtk.LabelNew("Device:")
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	deviceBox.PackStart(deviceLabel, false, false, 5)
-
-	deviceEntry, err := gtk.EntryNew()
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	deviceEntry.SetText(app.config.Device)
-	deviceBox.PackStart(deviceEntry, true, true, 5)
-
-	// AES Key Gen
-	keyGenBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	vbox.PackStart(keyGenBox, false, false, 5)
-
-	keyGenLabel, err := gtk.LabelNew("AES Key Gen (16 chars):")
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	keyGenBox.PackStart(keyGenLabel, false, false, 5)
-
-	keyGenEntry, err := gtk.EntryNew()
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	keyGenEntry.SetText(app.config.AESKeyGen)
-	keyGenBox.PackStart(keyGenEntry, true, true, 5)
-
-	// AES Key Cipher
-	keyCipherBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	vbox.PackStart(keyCipherBox, false, false, 5)
-
-	keyCipherLabel, err := gtk.LabelNew("AES Key Cipher (16 chars):")
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	keyCipherBox.PackStart(keyCipherLabel, false, false, 5)
-
-	keyCipherEntry, err := gtk.EntryNew()
-	if err != nil {
-		dialog.Destroy()
-		return
-	}
-	keyCipherEntry.SetText(app.config.AESKeyCipher)
-	keyCipherBox.PackStart(keyCipherEntry, true, true, 5)
 
 	// Buttons
 	buttonBox, err := gtk.BoxNew(gtk.ORIENTATION_HORIZONTAL, 5)
@@ -985,40 +1000,7 @@ func (app *App) onShowSettings() {
 func (app *App) drawSpoolIcon(da *gtk.DrawingArea, cr *cairo.Context) {
 	// Get current color from entry
 	colorHex, _ := app.colorEntry.GetText()
-
-	// Parse hex color (format: 0RRGGBB)
-	var r, g, b float64
-	if len(colorHex) == 7 && colorHex[0] == '0' {
-		var ri, gi, bi int
-		fmt.Sscanf(colorHex[1:], "%02X%02X%02X", &ri, &gi, &bi)
-		r = float64(ri) / 255.0
-		g = float64(gi) / 255.0
-		b = float64(bi) / 255.0
-	} else {
-		// Default to gray if invalid
-		r, g, b = 0.5, 0.5, 0.5
-	}
-
-	// Get widget dimensions
-	width := da.GetAllocatedWidth()
-	height := da.GetAllocatedHeight()
-	centerX := float64(width) / 2
-	centerY := float64(height) / 2
-
-	// Draw outer circle (spool rim)
-	cr.SetSourceRGB(r*0.7, g*0.7, b*0.7) // Darker shade for rim
-	cr.Arc(centerX, centerY, float64(width)/2-2, 0, 2*math.Pi)
-	cr.Fill()
-
-	// Draw inner circle (spool hub)
-	cr.SetSourceRGB(r, g, b) // Main color
-	cr.Arc(centerX, centerY, float64(width)/3, 0, 2*math.Pi)
-	cr.Fill()
-
-	// Draw center hole
-	cr.SetSourceRGB(0.9, 0.9, 0.9) // Light gray for hole
-	cr.Arc(centerX, centerY, float64(width)/8, 0, 2*math.Pi)
-	cr.Fill()
+	app.drawSpoolIconForColor(da, cr, colorHex)
 }
 
 func (app *App) onPickColor() {
