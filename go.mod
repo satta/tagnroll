@@ -8,5 +8,3 @@ require (
 	github.com/napsy/go-vte v0.0.0-20171212212852-ab6fda71757e
 	gopkg.in/yaml.v3 v3.0.1
 )
-
-require github.com/wilburx9/color-name v0.0.0-20200122234042-cbe455f85a1d // indirect
