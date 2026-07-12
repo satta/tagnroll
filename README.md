@@ -25,7 +25,8 @@ A GTK-based GUI application for managing Creality RFID tags for 3D printing fila
 
 - Go 1.21 or higher
 - GTK3 development libraries
-- Proxmark3 client (pm3 or proxmark3 command)
+- libvte development lbraries
+- Proxmark3 client (pm3 or proxmark3 command) with matching firmware
 - Linux system (GTK3)
 
 ## Installation
