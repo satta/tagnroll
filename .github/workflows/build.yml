@@ -42,7 +42,7 @@ jobs:
           cp build/tagnroll build/AppDir/usr/bin/
           cat > build/AppDir/usr/share/applications/tagnroll.desktop << 'EOF'
           [Desktop Entry]
-          Name=Tag'n'Roll
+          Name=tagnroll
           Exec=tagnroll
           Icon=tagnroll
           Type=Application
